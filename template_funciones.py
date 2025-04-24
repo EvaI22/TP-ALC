@@ -119,26 +119,44 @@ def calcula_pagerank(A: np.ndarray, alfa:float) -> np.ndarray:
     p = scipy.linalg.solve_triangular(U,Up) # Segunda inversión usando U
     return p
 
-def calcula_matriz_C_continua(D):
-    pass
-##    # Función para calcular la matriz de trancisiones C
-##    # A: Matriz de adyacencia
-##    # Retorna la matriz C en versión continua
-##    D = D.copy()
-##    F = 1/D
-##    np.fill_diagonal(F,0)
-##    Kinv = ... # Calcula inversa de la matriz K, que tiene en su diagonal la suma por filas de F 
-##    C = ... # Calcula C multiplicando Kinv y F
-##    return C
 
-def calcula_B(C,cantidad_de_visitas):
-    pass
-##    # Recibe la matriz T de transiciones, y calcula la matriz B que representa la relación entre el total de visitas y el número inicial de visitantes
-##    # suponiendo que cada visitante realizó cantidad_de_visitas pasos
-##    # C: Matirz de transiciones
-##    # cantidad_de_visitas: Cantidad de pasos en la red dado por los visitantes. Indicado como r en el enunciado
-##    # Retorna:Una matriz B que vincula la cantidad de visitas w con la cantidad de primeras visitas v
-##    B = np.eye(C.shape[0])
-##    for i in range(cantidad_de_visitas-1):
-##        # Sumamos las matrices de transición para cada cantidad de pasos
-##    return B
+def calcula_matriz_C_continua(D: np.ndarray) -> np.ndarray:
+    """
+    Recibe una matriz de distancias y calcula una matriz de transiciones para una red pesada.
+    """ 
+    # Función para calcular la matriz de trancisiones C
+    # Retorna la matriz C en versión continua (red pesada)
+    D = D.copy() # Matriz de distancias
+    D_sin_cero = np.where(D == 0, np.nan, D)  # Cuando la distancia es cero reemplazamos con np.nan para no dividir entre 0 y evitar la advertencia
+    # F = 1/D    
+    F = 1/D_sin_cero # Es como la matriz de adyacencia A, pero pesada: está en términos de la función f(d_ji)  
+    np.fill_diagonal(F,0)
+    sumas_filas_F = np.array([np.sum(F[i][:]) for i in range(F.shape[0])])
+    # K = np.diag(sumas_filas_F)      
+    inversos_de_las_sumas = 1 / sumas_filas_F     
+    Kinv = np.diag(inversos_de_las_sumas) # Calcula inversa de la matriz K, que tiene en su diagonal la suma por filas de F 
+    # print(K @ Kinv, Kinv @ K)  # Para chequear si da bien       
+    C = F.T @ Kinv # Calcula C multiplicando Kinv y F
+    
+    return C
+
+
+def calcula_B(C: np.ndarray, cantidad_de_visitas:int) -> np.ndarray:
+    """
+    Recibe una matriz de transiciones y una cantidad de pasos, y devuelve
+    la suma de las transiciones desde el inicio hasta la cantidad de pasos indicados. 
+    """
+    # Recibe la matriz T de transiciones, y calcula la matriz B que representa la relación entre el total de visitas y el número inicial de visitantes
+    # suponiendo que cada visitante realizó cantidad_de_visitas pasos
+    # C: Matirz de transiciones
+    # cantidad_de_visitas: Cantidad de pasos en la red dado por los visitantes. Indicado como r en el enunciado
+    # Retorna:Una matriz B que vincula la cantidad de visitas w con la cantidad de primeras visitas v
+  
+    B = np.eye(C.shape[0])  # Es como tener B = C^0I
+    potencias_de_C = C.copy()  # Acumula los productos sin modificar la matriz original
+    for i in range(cantidad_de_visitas-1):
+        # Sumamos las matrices de transición para cada cantidad de pasos
+        B += potencias_de_C  # Empieza como B = I + C^1 y en cada iteración i suma: I + C^1 + ... + C^{i+1} 
+        potencias_de_C = C @ potencias_de_C # Aumenta en uno la potencia 
+
+    return B
