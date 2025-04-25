@@ -1,0 +1,118 @@
+---
+Partiendo de la ecuación 
+$$ v = B^{-1}w $$
+Además, considerando a $B$ inversible y multiplicandola a ambos lados de la igualdad, obtenemos que:
+$$ w = B.v $$
+
+donde: $\displaystyle B = \sum_{k=0}^{r-1} C^k = C^0 + C^1 + \ldots + \overbrace{C\cdots C}^{C^{r-1}}$ (para $B$ en el paso $r$)
+
+A través de esta ecuación nos proponemos demostrar que este valor de $w$ siempre se cumple. 
+
+Iniciamos desde nuestro $v$ inicial, el cual tiene en la posición $i$ la **cantidad de personas que tienen al museo i como su primera opción**. Por otro lado, $w_i$ contiene el **total acumulado de visitantes estimados** en el museo $i$. 
+Para profundizar, observamos el comportamiento y la relación entre cada paso y visita:
+- $ w_1 =  C^{0}.v_0  $ *(Entrada en la red)*
+- $ w_2 = (C^{0} + C^{1}).v_0 $  *(1ra visita)*
+- $ w_3 = (C^{0} + C^{1} + C^{2}).v_0 $  *(2da visita)*
+- $ w_4 = (C^{0} + C^{1} + C^{2} + C^{3}).v_0$  *(3ra visita)*
+
+  . . .
+
+- $w_{k-1} = (C^{0} + C^{1} + \ldots + C^{k-2})v_0 $ *(visita k-2)* 
+- $w_k = (C^{0} + C^{1} + \ldots + C^{k-2} + C^{k-1})v_0 $ *(visita k-1)* 
+
+$$\text{Entonces podemos observar que... }$$
+
+
+$$
+\boxed{
+\text{Cada paso está determinado por la suma de las visitas anteriores con $v0$ momento inicial.}
+}
+$$
+
+Es necesario determinar qué componentes se están multiplicando en la operación...
+$$
+C = \begin{bmatrix}
+c_{11} & \dots & c_{1m} \\
+\vdots & \ddots & \vdots \\
+a_{n1} & \dots & a_{nm} \\
+\end{bmatrix}
+, v_{k-1} = \begin{bmatrix}
+(v_{k-1})_1 \\
+\vdots \\
+(v_{k-1})_n
+\end{bmatrix}
+$$
+
+
+Vemos con nuestra primer componente:
+$$ (w_{k})_1 = c_{11}*(v_{k-1})_{1}  + c_{12}*(v_{k-1})_2  + ... + c_{1m}*(v_{k-1})_n $$
+
+En este caso obtenemos la siguiente sumatoria:
+$$ 
+\boxed{
+ (w_{k})_{i} = \sum_{j}^{} C_{ji}*(v_{k-1})_{j}
+}
+$$
+
+Si queremos calcular la cantidad total acumulada de visitantes que recibio cada museo (w) planteamos la suma de los pasos de los visitantes, que equivalen a los pasos hechos por los visitantes a cada uno de los museos.
+
+Trasladando cada componente al vector que lo contiene, obtenemos que:
+
+$\displaystyle w = \underbrace{\sum_{k=0}^{r-1} C^k}_{B} \cdot \underbrace{v}_{\substack{vector\\ inicial}} \quad \implies\quad  v = B^{-1} w$
+
+
+En nuestro caso wi puede expresar como la suma de las componentes i de los vectores v
+
+Por ejemplo, si tomamos i=1, w1 = primer elemento de v0 + primer elemento de v1... 
+
+$$ w_{i} = \sum_{k}^{} (v_{k})_{i} = \sum_{k}^{} \sum_{j}^{} C_{ji}*(v_{k-1})_{j} $$
+
+Reagrupandolo obtenemos: 
+
+$$  w_{i} = \sum_{j}^{}C_{ji} * \sum_{k}^{}(v_{k-1})_{j} $$
+
+Vemos, según el análisis anterior, que esta sumatoria también es equivalente a:
+$$ = \sum_{k}^{} C^k * v $$
+
+
+Luego, nos queda estudiar el comportamiento general de la sumatoria de pasos.
+- Consideramos una cantidad *k* de pasos.
+
+$$
+w_k = \sum_{i=0}^{r-1} v_{i} = v_0 + v_1 + v_2 + ... + v_(r-1) 
+$$
+La suma de vectores da un vector
+
+\begin{aligned}
+v_0 = C^0.v_0 \\
++ \\
+v_1 = C^1.v_0 \\
++ \\
+v_2 = C^2.v_0 \\
++ \\
+v_3 = C^3.v_0 \\
++ \\
+\vdots \\
++ \\
+v_k = C^(r-1).v \\
+\hline
+C^0.v+ C^1.v+ C^2.v + ... + C^(r-1).v \\
+(I + C^1 + C^2 + ... + C^(r-1)).v \\
+= \sum_{k=0}^{r-1} C^k * v
+\end{aligned}
+
+Vemos la forma de nuestra primer componente:
+$ (w)_1 = c_{11}*(v)_{1}  + c_{12}*(v)_2  + ... + c_{1m}*(v_{0})_n $
+
+Vemos que multiplicamos cada fila de la matriz C a la k por las componentes del vector v0.
+Lo cual lo definimos como:
+$$
+w_{i} = \sum_{k}^{} \sum_{j}^{} C_{ij}^{k} * (v_{0})_{j}
+$$
+
+Reagrupamos
+
+$$ w_{i} = \sum_{j}^{} (v_{0})_{j} \sum_{k}^{} C_{ij}^{k} $$
+
+Aquello es equivalente a pensar la distribucion de nuestro vector B*v
+$$ = \sum_{k}^{} C^k * v $$ </span>
