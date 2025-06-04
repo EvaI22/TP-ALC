@@ -179,7 +179,7 @@ A_ejemplo = np.array([
     [0, 0, 0, 0, 1, 1, 1, 0]
 ])
 
-s_esperada = np.array([1, 1, 1, 1, -1, -1, -1, -1]) # 2 Grupos [0-3] y [4-7]
+s_esperada = np.array([1, 1, 1, 1, -1, -1, -1, -1]) # 2 Grupos nodos del 1 al 4, y nodos del 5 al 8
 
 
 def calcula_L(A: np.ndarray) -> np.ndarray:
