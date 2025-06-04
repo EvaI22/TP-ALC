@@ -163,154 +163,289 @@ def calcula_B(C: np.ndarray, cantidad_de_visitas:int) -> np.ndarray:
 
 
 
+
+
 # FUNCIONES DE LA SEGUNDA PARTE DEL TP
 
-
 # Matriz A de ejemplo
-#A_ejemplo = np.array([
-#    [0, 1, 1, 1, 0, 0, 0, 0],
-#    [1, 0, 1, 1, 0, 0, 0, 0],
-#    [1, 1, 0, 1, 0, 1, 0, 0],
-#    [1, 1, 1, 0, 1, 0, 0, 0],
-#    [0, 0, 0, 1, 0, 1, 1, 1],
-#    [0, 0, 1, 0, 1, 0, 1, 1],
-#    [0, 0, 0, 0, 1, 1, 0, 1],
-#    [0, 0, 0, 0, 1, 1, 1, 0]
-#])
+A_ejemplo = np.array([
+    [0, 1, 1, 1, 0, 0, 0, 0],
+    [1, 0, 1, 1, 0, 0, 0, 0],
+    [1, 1, 0, 1, 0, 1, 0, 0],
+    [1, 1, 1, 0, 1, 0, 0, 0],
+    [0, 0, 0, 1, 0, 1, 1, 1],
+    [0, 0, 1, 0, 1, 0, 1, 1],
+    [0, 0, 0, 0, 1, 1, 0, 1],
+    [0, 0, 0, 0, 1, 1, 1, 0]
+])
+
+s_esperada = np.array([1, 1, 1, 1, -1, -1, -1, -1]) # 2 Grupos [0-3] y [4-7]
 
 
-def calcula_L(A):
-    # La función recibe la matriz de adyacencia A y calcula la matriz laplaciana
-    # Have fun!!
-    return L
+def calcula_L(A: np.ndarray) -> np.ndarray:
+    """
+    La función recibe la matriz de adyacencia A y calcula la matriz laplaciana
+    """
+    # Sumamos las filas de A y almacenamos el resultado en un vector
+    sumas_filas_A = np.array([np.sum(A[i, :]) for i in range(A.shape[0])])
+    # Definimos el vector como la diagonal de K
+    K = np.diag(sumas_filas_A) 
+    # Retornamos L = K - A
+    return K - A  
 
-def calcula_R(A):
-    # La funcion recibe la matriz de adyacencia A y calcula la matriz de modularidad
-    # Have fun!!
-    return R
+### Verificamos que L cumple con las propiedades que debe tener
+##res_L = calcula_L(A_ejemplo)
+##print(f'L es simétrica: {np.allclose(res_L, res_L.T)}')
+##x_prueba = 2 * np.random.random(res_L.shape[0]) - 1
+##print(f'Es semidefinida positiva: {x_prueba @ res_L @ x_prueba.T >= 0}')
+
+
+
+
+
+
+def calcula_R(A:np.ndarray) -> np.ndarray:
+    """
+    La funcion recibe la matriz de adyacencia A y calcula la matriz de modularidad
+    """
+    # Construimos la diagonal de K, ya que solo necesitamos sus elementos diagonales
+    diagonal_K = np.array([np.sum(A[i, :]) for i in range(A.shape[0])])
+    # Calculamos el número total de conexiones E
+    E = np.sum(A) / 2
+    # Calculamos la matriz P que contiene el número esperado de conexiones entre i y j 
+    P = np.zeros(A.shape)
+    for i in range(A.shape[0]):
+        for j in range(A.shape[1]):
+            P[i, j] = (diagonal_K[i]*diagonal_K[j]) / (2*E)
+    # Retornamos R = A - P
+    return A - P
+
+
+### Verificamos que R cumple con las propiedades que debe tener
+##res_R = calcula_R(A_ejemplo)
+##print(f'R es simétrica: {np.allclose(res_R, res_R.T)}')
+##### No aparece el vector de 1 porque np retorna vectores normalizados
+####print(f'Autovalores y autovectores: {np.linalg.eig(res_R)}')
+##sum_filas = np.isclose(0, np.sum(np.array([np.sum(res_R[i, :]) for i in range(res_R.shape[0])])))
+##sum_cols = np.isclose(0, np.sum(np.array([np.sum(res_R[:, j]) for j in range(res_R.shape[1])])))
+##print(f'La suma de las filas de R es cero: {sum_filas}')
+##print(f'La suma de las columnas de R es cero: {sum_cols}')
+##
+
+
+
+
+
 
 def calcula_lambda(L,v):
-    # Recibe L y v y retorna el corte asociado
-    # Have fun!
+    """
+    Recibe L y v y retorna el corte asociado
+    """
+    # Definimos s
+    s = np.where(np.isclose(v, 0) | (v > 0), 1, -1)
+    # Calculamos el corte
+    lambdon = (1/4) * (s.T @ L @ s) # Consultar si debería devolver con factor 0.5
+    
     return lambdon
 
+### Verificamos con todos los autovectores
+##res_L = calcula_L(A_ejemplo)
+##autovals_L, autovecs_L = np.linalg.eigh(res_L)
+##for i in range(len(autovals_L)):
+##    print(f'Autovalor: {autovals_L[i]}\n', calcula_lambda(res_L, autovecs_L[i]))
+
+### Verificamos con la partición esperada (s optimo)
+##print(f'Corte minimo con partición optima: {calcula_lambda(res_L, s_esperada)}')
+
+
+
+
+
+
+
 def calcula_Q(R,v):
-    # La funcion recibe R y s y retorna la modularidad (a menos de un factor 2E)
+    """
+    La funcion recibe R y s y retorna la modularidad (a menos de un factor 2E)
+    """
+    # Definimos s
+    s = np.where(np.isclose(v, 0) | (v > 0), 1, -1)
+    # Calculamos la modularidad: la fórmula que nos pasaron incluye (1/4E)
+    # pero para calcular E necesitamos A, que no lo tenemos, entonces devolvemos
+    # Q' al cual se debería multiplicar por (1/2E) antes de usarlo
+    Q = (1/2) * (s.T @ R @ s)
     return Q
 
-def metpot1(A,tol=1e-8,maxrep=np.Inf):
-   # Recibe una matriz A y calcula su autovalor de mayor módulo, con un error relativo menor a tol y-o haciendo como mucho maxrep repeticiones
-   v = ... # Generamos un vector de partida aleatorio, entre -1 y 1
-   v = ... # Lo normalizamos
-   v1 = ... # Aplicamos la matriz una vez
-   v1 = ... # normalizamos
-   l = ... # Calculamos el autovector estimado
-   l1 = ... # Y el estimado en el siguiente paso
-   nrep = 0 # Contador
-   while np.abs(l1-l)/np.abs(l) > tol and nrep < maxrep: # Si estamos por debajo de la tolerancia buscada 
-      v = v1 # actualizamos v y repetimos
-      l = l1
-      v1 = ... # Calculo nuevo v1
-      v1 = ... # Normalizo
-      l1 = ... # Calculo autovector
-      nrep += 1 # Un pasito mas
-   if not nrep < maxrep:
-      print('MaxRep alcanzado')
-   l = ... # Calculamos el autovalor
-   return v1,l,nrep<maxrep
+### Verificamos
+##res_R = calcula_R(A_ejemplo)
+##autovals_R, autovecs_R = np.linalg.eig(res_R)
+##E = np.sum(A_ejemplo) / 2
+##for i in range(len(autovecs_R)):
+##    v = autovecs_R[i]    
+##    Q_prima = calcula_Q(res_R, v)
+##    print(f'autovalor: {autovals_R[i]}')
+##    print((1 / (2*E)) * Q_prima)
 
-def deflaciona(A,tol=1e-8,maxrep=np.Inf):
-    # Recibe la matriz A, una tolerancia para el método de la potencia, y un número máximo de repeticiones
-    v1,l1,_ = metpot1(A,tol,maxrep) # Buscamos primer autovector con método de la potencia
-    deflA = ... # Sugerencia, usar la funcion outer de numpy
-    return deflA
-
-def metpot2(A,v1,l1,tol=1e-8,maxrep=np.Inf):
-   # La funcion aplica el metodo de la potencia para buscar el segundo autovalor de A, suponiendo que sus autovectores son ortogonales
-   # v1 y l1 son los primeors autovectores y autovalores de A}
-   # Have fun!
-   return metpot1(deflA,tol,maxrep)
-
-
-def metpotI(A,mu,tol=1e-8,maxrep=np.Inf):
-    # Retorna el primer autovalor de la inversa de A + mu * I, junto a su autovector y si el método convergió.
-    return metpot1(...,tol=tol,maxrep=maxrep)
-
-def metpotI2(A,mu,tol=1e-8,maxrep=np.Inf):
-   # Recibe la matriz A, y un valor mu y retorna el segundo autovalor y autovector de la matriz A, 
-   # suponiendo que sus autovalores son positivos excepto por el menor que es igual a 0
-   # Retorna el segundo autovector, su autovalor, y si el metodo llegó a converger.
-   X = ... # Calculamos la matriz A shifteada en mu
-   iX = ... # La invertimos
-   defliX = ... # La deflacionamos
-   v,l,_ =  ... # Buscamos su segundo autovector
-   l = 1/l # Reobtenemos el autovalor correcto
-   l -= mu
-   return v,l,_
-
-
-def laplaciano_iterativo(A,niveles,nombres_s=None):
-    # Recibe una matriz A, una cantidad de niveles sobre los que hacer cortes, y los nombres de los nodos
-    # Retorna una lista con conjuntos de nodos representando las comunidades.
-    # La función debe, recursivamente, ir realizando cortes y reduciendo en 1 el número de niveles hasta llegar a 0 y retornar.
-    if nombres_s is None: # Si no se proveyeron nombres, los asignamos poniendo del 0 al N-1
-        nombres_s = range(A.shape[0])
-    if A.shape[0] == 1 or niveles == 0: # Si llegamos al último paso, retornamos los nombres en una lista
-        return([nombres_s])
-    else: # Sino:
-        L = calcula_L(A) # Recalculamos el L
-        v,l,_ = ... # Encontramos el segundo autovector de L
-        # Recortamos A en dos partes, la que está asociada a el signo positivo de v y la que está asociada al negativo
-        Ap = ... # Asociado al signo positivo
-        Am = ... # Asociado al signo negativo
-        
-        return(
-                laplaciano_iterativo(Ap,niveles-1,
-                                     nombres_s=[ni for ni,vi in zip(nombres_s,v) if vi>0]) +
-                laplaciano_iterativo(Am,niveles-1,
-                                     nombres_s=[ni for ni,vi in zip(nombres_s,v) if vi<0])
-                )        
-
-
-def modularidad_iterativo(A=None,R=None,nombres_s=None):
-    # Recibe una matriz A, una matriz R de modularidad, y los nombres de los nodos
-    # Retorna una lista con conjuntos de nodos representando las comunidades.
-
-    if A is None and R is None:
-        print('Dame una matriz')
-        return(np.nan)
-    if R is None:
-        R = calcula_R(A)
-    if nombres_s is None:
-        nombres_s = range(R.shape[0])
-    # Acá empieza lo bueno
-    if R.shape[0] == 1: # Si llegamos al último nivel
-        return(...)
-    else:
-        v,l,_ = ... # Primer autovector y autovalor de R
-        # Modularidad Actual:
-        Q0 = np.sum(R[v>0,:][:,v>0]) + np.sum(R[v<0,:][:,v<0])
-        if Q0<=0 or all(v>0) or all(v<0): # Si la modularidad actual es menor a cero, o no se propone una partición, terminamos
-            return(...)
-        else:
-            ## Hacemos como con L, pero usando directamente R para poder mantener siempre la misma matriz de modularidad
-            Rp = ... # Parte de R asociada a los valores positivos de v
-            Rm = ... # Parte asociada a los valores negativos de v
-            vp,lp,_ = ...  # autovector principal de Rp
-            vm,lm,_ = ... # autovector principal de Rm
-        
-            # Calculamos el cambio en Q que se produciría al hacer esta partición
-            Q1 = 0
-            if not all(vp>0) or all(vp<0):
-               Q1 = np.sum(Rp[vp>0,:][:,vp>0]) + np.sum(Rp[vp<0,:][:,vp<0])
-            if not all(vm>0) or all(vm<0):
-                Q1 += np.sum(Rm[vm>0,:][:,vm>0]) + np.sum(Rm[vm<0,:][:,vm<0])
-            if Q0 >= Q1: # Si al partir obtuvimos un Q menor, devolvemos la última partición que hicimos
-                return([[ni for ni,vi in zip(nombres_s,v) if vi>0],[ni for ni,vi in zip(nombres_s,v) if vi<0]])
-            else:
-                # Sino, repetimos para los subniveles
-                return(...)
+### Verificamos con la partición esperada (s optimo)
+##res_R = calcula_R(A_ejemplo)
+##E = np.sum(A_ejemplo) / 2
+##print(f'Modularidad con partición optima: {(1 / (2*E)) * calcula_Q(res_R, s_esperada)}')
 
 
 
-    return B
+
+
+    
+
+def metpot1(A:np.ndarray, tol:float=1e-8, maxrep:int=1000):
+    """
+    Recibe una matriz A y calcula su autovalor de mayor módulo,
+    con un error relativo menor a tol y-o haciendo como mucho
+    maxrep repeticiones.
+    """
+    v = 2 * np.random.rand(A.shape[0]) - 1  # Generamos un vector de partida aleatorio, entre -1 y 1
+    v /= np.linalg.norm(v)  # Lo normalizamos
+    v1 = A @ v  # Aplicamos la matriz una vez
+    v1 /= np.linalg.norm(v1)  # normalizamos
+    # Los vectores ya están normalizados pero usamos la formula
+    # para cociente de Rayleigh definida en los apuntes (por las dudas)
+    l = np.dot(v, A @ v) / np.linalg.norm(v)**2  # Calculamos el autovector estimado
+    l1 = np.dot(v1, A @ v1) / np.linalg.norm(v1)**2  # Y el estimado en el siguiente paso
+    nrep = 0  # Contador
+    while np.abs(l1-l)/np.abs(l) > tol and nrep < maxrep: # Si estamos por debajo de la tolerancia buscada 
+        v = v1.copy()  # actualizamos v y repetimos
+        l = l1
+        v1 = A @ v1  # Calculo nuevo v1
+        v1 /= np.linalg.norm(v1)  # Normalizo
+        l1 = np.dot(v1, A @ v1) / np.linalg.norm(v1)**2  # Calculo autovector
+        nrep += 1  # Un pasito mas
+    if not nrep < maxrep:
+        print('MaxRep alcanzado')
+    l = np.dot(v1, A @ v1) / np.linalg.norm(v1)  # Calculamos el autovalor
+    return v1 ,l , nrep<maxrep
+
+### Verificamos
+##res = metpot1(A_ejemplo)
+##print(res)
+##avals, avecs = np.linalg.eig(A_ejemplo)
+##print(avecs[np.argmax(avals)])
+##print(np.linalg.norm(res[0]), np.linalg.norm(avecs[np.argmax(avals)]) )
+##
+
+
+
+
+##def deflaciona(A,tol=1e-8,maxrep=np.inf):
+##    # Recibe la matriz A, una tolerancia para el método de la potencia, y un número máximo de repeticiones
+##    v1,l1,_ = metpot1(A,tol,maxrep) # Buscamos primer autovector con método de la potencia
+##    deflA = ... # Sugerencia, usar la funcion outer de numpy
+##    return deflA
+
+
+
+
+
+
+##def metpot2(A,v1,l1,tol=1e-8,maxrep=np.inf):
+##   # La funcion aplica el metodo de la potencia para buscar el segundo autovalor de A, suponiendo que sus autovectores son ortogonales
+##   # v1 y l1 son los primeors autovectores y autovalores de A}
+##   # Have fun!
+##   return metpot1(deflA,tol,maxrep)
+
+
+
+
+
+##def metpotI(A,mu,tol=1e-8,maxrep=np.inf):
+##    # Retorna el primer autovalor de la inversa de A + mu * I, junto a su autovector y si el método convergió.
+##    return metpot1(...,tol=tol,maxrep=maxrep)
+
+
+
+
+
+##def metpotI2(A,mu,tol=1e-8,maxrep=np.inf):
+##   # Recibe la matriz A, y un valor mu y retorna el segundo autovalor y autovector de la matriz A, 
+##   # suponiendo que sus autovalores son positivos excepto por el menor que es igual a 0
+##   # Retorna el segundo autovector, su autovalor, y si el metodo llegó a converger.
+##   X = ... # Calculamos la matriz A shifteada en mu
+##   iX = ... # La invertimos
+##   defliX = ... # La deflacionamos
+##   v,l,_ =  ... # Buscamos su segundo autovector
+##   l = 1/l # Reobtenemos el autovalor correcto
+##   l -= mu
+##   return v,l,_
+
+
+
+
+
+
+##def laplaciano_iterativo(A,niveles,nombres_s=None):
+##    # Recibe una matriz A, una cantidad de niveles sobre los que hacer cortes, y los nombres de los nodos
+##    # Retorna una lista con conjuntos de nodos representando las comunidades.
+##    # La función debe, recursivamente, ir realizando cortes y reduciendo en 1 el número de niveles hasta llegar a 0 y retornar.
+##    if nombres_s is None: # Si no se proveyeron nombres, los asignamos poniendo del 0 al N-1
+##        nombres_s = range(A.shape[0])
+##    if A.shape[0] == 1 or niveles == 0: # Si llegamos al último paso, retornamos los nombres en una lista
+##        return([nombres_s])
+##    else: # Sino:
+##        L = calcula_L(A) # Recalculamos el L
+##        v,l,_ = ... # Encontramos el segundo autovector de L
+##        # Recortamos A en dos partes, la que está asociada a el signo positivo de v y la que está asociada al negativo
+##        Ap = ... # Asociado al signo positivo
+##        Am = ... # Asociado al signo negativo
+##        
+##        return(
+##                laplaciano_iterativo(Ap,niveles-1,
+##                                     nombres_s=[ni for ni,vi in zip(nombres_s,v) if vi>0]) +
+##                laplaciano_iterativo(Am,niveles-1,
+##                                     nombres_s=[ni for ni,vi in zip(nombres_s,v) if vi<0])
+##                )        
+
+
+
+
+
+
+##def modularidad_iterativo(A=None,R=None,nombres_s=None):
+##    # Recibe una matriz A, una matriz R de modularidad, y los nombres de los nodos
+##    # Retorna una lista con conjuntos de nodos representando las comunidades.
+##
+##    if A is None and R is None:
+##        print('Dame una matriz')
+##        return(np.nan)
+##    if R is None:
+##        R = calcula_R(A)
+##    if nombres_s is None:
+##        nombres_s = range(R.shape[0])
+##    # Acá empieza lo bueno
+##    if R.shape[0] == 1: # Si llegamos al último nivel
+##        return(...)
+##    else:
+##        v,l,_ = ... # Primer autovector y autovalor de R
+##        # Modularidad Actual:
+##        Q0 = np.sum(R[v>0,:][:,v>0]) + np.sum(R[v<0,:][:,v<0])
+##        if Q0<=0 or all(v>0) or all(v<0): # Si la modularidad actual es menor a cero, o no se propone una partición, terminamos
+##            return(...)
+##        else:
+##            ## Hacemos como con L, pero usando directamente R para poder mantener siempre la misma matriz de modularidad
+##            Rp = ... # Parte de R asociada a los valores positivos de v
+##            Rm = ... # Parte asociada a los valores negativos de v
+##            vp,lp,_ = ...  # autovector principal de Rp
+##            vm,lm,_ = ... # autovector principal de Rm
+##        
+##            # Calculamos el cambio en Q que se produciría al hacer esta partición
+##            Q1 = 0
+##            if not all(vp>0) or all(vp<0):
+##               Q1 = np.sum(Rp[vp>0,:][:,vp>0]) + np.sum(Rp[vp<0,:][:,vp<0])
+##            if not all(vm>0) or all(vm<0):
+##                Q1 += np.sum(Rm[vm>0,:][:,vm>0]) + np.sum(Rm[vm<0,:][:,vm<0])
+##            if Q0 >= Q1: # Si al partir obtuvimos un Q menor, devolvemos la última partición que hicimos
+##                return([[ni for ni,vi in zip(nombres_s,v) if vi>0],[ni for ni,vi in zip(nombres_s,v) if vi<0]])
+##            else:
+##                # Sino, repetimos para los subniveles
+##                return(...)
+##
+##
+##
+##    return B
