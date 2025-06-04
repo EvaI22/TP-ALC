@@ -244,7 +244,7 @@ def calcula_lambda(L,v):
     # Definimos s
     s = np.where(np.isclose(v, 0) | (v > 0), 1, -1)
     # Calculamos el corte
-    lambdon = (1/4) * (s.T @ L @ s) # Consultar si debería devolver con factor 0.5
+    lambdon = (1/4) * (s.T @ L @ s)
     
     return lambdon
 
