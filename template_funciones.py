@@ -57,7 +57,7 @@ def calculaLU(matriz: np.ndarray) -> tuple[np.ndarray]: # Es la que arrancamos e
     return L, U
 
 
-def calcula_inversa_con_LU(M: np.ndarray) -> np.ndarray: 
+def calcula_inversa_con_LU(M: np.ndarray, ver_det=True) -> np.ndarray: 
     """
     Recibe una matriz M invertible y retorna su inversa, utilizando factorización LU.
     """
@@ -67,13 +67,13 @@ def calcula_inversa_con_LU(M: np.ndarray) -> np.ndarray:
     if filas != columnas:
         raise ValueError('Matriz no cuadrada')
 
-    # Verificamos que M sea invertible: podríamos ver si el número de condición es muy grande
-    # o si el rango de la matriz es menor estricto que n (dimension de filas o columnas), la matriz
-    # sería singular, pero no se si nos está permitido usarlo. El determinante calculo que sí.
-    # Otra opción seria pedir que M sea invertible
-    det_M = np.linalg.det(M)
-    if np.isclose(det_M, 0):  # Si det(M) != 0, M y LU son invertibles        
-        raise ValueError('Matriz no invertible')
+    # Agregamos la posibilidad de no verificar que el determinante sea
+    # cercano a cero, para matrices que están cerca de ser singulares
+    # (Modificación necesaria para segunda parte del TP)
+    if ver_det: 
+        det_M = np.linalg.det(M)
+        if np.isclose(det_M, 0):  # Si det(M) != 0, M y LU son invertibles        
+            raise ValueError('Matriz no invertible')
 
     # Factorizamos M
     L, U = calculaLU(M)
@@ -220,17 +220,14 @@ def calcula_R(A:np.ndarray) -> np.ndarray:
     # Retornamos R = A - P
     return A - P
 
-
 ### Verificamos que R cumple con las propiedades que debe tener
 ##res_R = calcula_R(A_ejemplo)
 ##print(f'R es simétrica: {np.allclose(res_R, res_R.T)}')
-##### No aparece el vector de 1 porque np retorna vectores normalizados
-####print(f'Autovalores y autovectores: {np.linalg.eig(res_R)}')
 ##sum_filas = np.isclose(0, np.sum(np.array([np.sum(res_R[i, :]) for i in range(res_R.shape[0])])))
 ##sum_cols = np.isclose(0, np.sum(np.array([np.sum(res_R[:, j]) for j in range(res_R.shape[1])])))
 ##print(f'La suma de las filas de R es cero: {sum_filas}')
 ##print(f'La suma de las columnas de R es cero: {sum_cols}')
-##
+
 
 
 
@@ -248,19 +245,6 @@ def calcula_lambda(L,v):
     
     return lambdon
 
-### Verificamos con todos los autovectores
-##res_L = calcula_L(A_ejemplo)
-##autovals_L, autovecs_L = np.linalg.eigh(res_L)
-##for i in range(len(autovals_L)):
-##    print(f'Autovalor: {autovals_L[i]}\n', calcula_lambda(res_L, autovecs_L[i]))
-
-### Verificamos con la partición esperada (s optimo)
-##print(f'Corte minimo con partición optima: {calcula_lambda(res_L, s_esperada)}')
-
-
-
-
-
 
 
 def calcula_Q(R,v):
@@ -275,20 +259,11 @@ def calcula_Q(R,v):
     Q = (1/2) * (s.T @ R @ s)
     return Q
 
-### Verificamos
-##res_R = calcula_R(A_ejemplo)
-##autovals_R, autovecs_R = np.linalg.eig(res_R)
-##E = np.sum(A_ejemplo) / 2
-##for i in range(len(autovecs_R)):
-##    v = autovecs_R[i]    
-##    Q_prima = calcula_Q(res_R, v)
-##    print(f'autovalor: {autovals_R[i]}')
-##    print((1 / (2*E)) * Q_prima)
 
 ### Verificamos con la partición esperada (s optimo)
 ##res_R = calcula_R(A_ejemplo)
 ##E = np.sum(A_ejemplo) / 2
-##print(f'Modularidad con partición optima: {(1 / (2*E)) * calcula_Q(res_R, s_esperada)}')
+##print(f'Modularidad con partición optima: {(1 / (2*E)) * calcula_Q(res_R, s_esperada)}') 
 
 
 
@@ -296,87 +271,132 @@ def calcula_Q(R,v):
 
     
 
-def metpot1(A:np.ndarray, tol:float=1e-8, maxrep:int=1000):
+def metpot1(A:np.ndarray, tol:float=1e-8, maxrep:int=np.inf):
     """
     Recibe una matriz A y calcula su autovalor de mayor módulo,
     con un error relativo menor a tol y-o haciendo como mucho
     maxrep repeticiones.
     """
+    # La fórmula para el cociente de Rayleigh nos pide dividir por: np.linalg.norm(v)**2
+    # Pero probando varias veces, la calculada suele ser 0.9999... Entonces para arrastrar
+    # la menor cantidad de errores posibles asumimos que np.linalg.norm(v) = 1 (lo quitamos del denominador)
     v = 2 * np.random.rand(A.shape[0]) - 1  # Generamos un vector de partida aleatorio, entre -1 y 1
-    v /= np.linalg.norm(v)  # Lo normalizamos
+    v /= np.linalg.norm(v)  # Lo normalizamos: asumimos que que np.linalg.norm(v) = 1
     v1 = A @ v  # Aplicamos la matriz una vez
     v1 /= np.linalg.norm(v1)  # normalizamos
-    # Los vectores ya están normalizados pero usamos la formula
-    # para cociente de Rayleigh definida en los apuntes (por las dudas)
-    l = np.dot(v, A @ v) / np.linalg.norm(v)**2  # Calculamos el autovector estimado
-    l1 = np.dot(v1, A @ v1) / np.linalg.norm(v1)**2  # Y el estimado en el siguiente paso
+    l = np.dot(v, A @ v)  # Calculamos el autovector estimado: np.linalg.norm(v)**2 = 1 (no lo agregamos)
+    l1 = np.dot(v1, A @ v1)  # Y el estimado en el siguiente paso
     nrep = 0  # Contador
     while np.abs(l1-l)/np.abs(l) > tol and nrep < maxrep: # Si estamos por debajo de la tolerancia buscada 
         v = v1.copy()  # actualizamos v y repetimos
         l = l1
         v1 = A @ v1  # Calculo nuevo v1
         v1 /= np.linalg.norm(v1)  # Normalizo
-        l1 = np.dot(v1, A @ v1) / np.linalg.norm(v1)**2  # Calculo autovector
+        l1 = np.dot(v1, A @ v1)  # Calculo autovector
         nrep += 1  # Un pasito mas
     if not nrep < maxrep:
         print('MaxRep alcanzado')
-    l = np.dot(v1, A @ v1) / np.linalg.norm(v1)  # Calculamos el autovalor
+    l = np.dot(v1, A @ v1)  # Calculamos el autovalor    
     return v1 ,l , nrep<maxrep
 
 ### Verificamos
 ##res = metpot1(A_ejemplo)
-##print(res)
-##avals, avecs = np.linalg.eig(A_ejemplo)
-##print(avecs[np.argmax(avals)])
-##print(np.linalg.norm(res[0]), np.linalg.norm(avecs[np.argmax(avals)]) )
-##
+##print(f'El autovalor dominante de A es: {np.round(res[1], 8)}')
 
 
 
 
-##def deflaciona(A,tol=1e-8,maxrep=np.inf):
-##    # Recibe la matriz A, una tolerancia para el método de la potencia, y un número máximo de repeticiones
-##    v1,l1,_ = metpot1(A,tol,maxrep) # Buscamos primer autovector con método de la potencia
-##    deflA = ... # Sugerencia, usar la funcion outer de numpy
-##    return deflA
+def deflaciona(A:np.ndarray, tol:float=1e-8, maxrep:int=np.inf) -> np.ndarray:
+    """
+    Recibe la matriz A, una tolerancia para el método de la potencia,
+    y un número máximo de repeticiones
+    """
+    v1, l1, _ = metpot1(A, tol, maxrep)  # Buscamos primer autovector con método de la potencia
+    deflA = A - l1 * np.outer(v1, v1)  # v1 ya está normalizado
+    # Retornamos A_1 (el autovalor dominante obtenido fue reemplazado por 0)
+    return deflA
 
-
-
-
-
-
-##def metpot2(A,v1,l1,tol=1e-8,maxrep=np.inf):
-##   # La funcion aplica el metodo de la potencia para buscar el segundo autovalor de A, suponiendo que sus autovectores son ortogonales
-##   # v1 y l1 son los primeors autovectores y autovalores de A}
-##   # Have fun!
-##   return metpot1(deflA,tol,maxrep)
+### Verificamos
+##A_1 = deflaciona(A_ejemplo)
+##print(f'A_1 es simétrica: {np.allclose(A_1, A_1.T)}')
+##print(f'El autovalor dominante de A_1 es: {np.round(metpot1(A_1)[1],8)}')
 
 
 
 
 
-##def metpotI(A,mu,tol=1e-8,maxrep=np.inf):
-##    # Retorna el primer autovalor de la inversa de A + mu * I, junto a su autovector y si el método convergió.
-##    return metpot1(...,tol=tol,maxrep=maxrep)
+def metpot2(
+    A:np.ndarray, v1:np.ndarray, l1:float, tol:float=1e-8, maxrep:int=np.inf
+    ):
+    """
+    La funcion aplica el metodo de la potencia
+    para buscar el segundo autovalor de A,
+    suponiendo que sus autovectores son ortogonales
+    """
+    # v1 y l1 son los primeros autovectores y autovalores de A}    
+    deflA = A - l1 * np.outer(v1, v1)  # Esta es nuestra A_1 donde el autovalor dominante de A ahora es 0 
+    return metpot1(deflA,tol,maxrep)
+
+### Verificamos
+##A_1 = deflaciona(A_ejemplo)
+##v1, l1, _ = metpot1(A_ejemplo)
+##v2, l2, _ = metpot2(A_ejemplo, v1, l1)
+##print(f'El autovalor l1 es: {np.round(l1, 8)}\n')
+##print(f'El autovalor l2 es: {np.round(l2, 8)}\n')
 
 
 
 
 
-##def metpotI2(A,mu,tol=1e-8,maxrep=np.inf):
-##   # Recibe la matriz A, y un valor mu y retorna el segundo autovalor y autovector de la matriz A, 
-##   # suponiendo que sus autovalores son positivos excepto por el menor que es igual a 0
-##   # Retorna el segundo autovector, su autovalor, y si el metodo llegó a converger.
-##   X = ... # Calculamos la matriz A shifteada en mu
-##   iX = ... # La invertimos
-##   defliX = ... # La deflacionamos
-##   v,l,_ =  ... # Buscamos su segundo autovector
-##   l = 1/l # Reobtenemos el autovalor correcto
-##   l -= mu
-##   return v,l,_
+# La matriz laplaciana tiene autovalores >= 0, cuando mu ≈ 0 obtiene el buscado
+# Para el corte mínimo usamos el segundo autovalor más chico
+def metpotI(A:np.ndarray, mu:float, tol:float=1e-8, maxrep:int=np.inf): 
+    """
+    Retorna el primer autovalor de la inversa de A + mu * I,
+    junto a su autovector y si el método convergió.
+    """
+    A_shifteada = A + mu * np.eye(A.shape[0])
+    A_shifteada_inv = calcula_inversa_con_LU(A_shifteada, False)  # Evitamos que calcule el determinante 
+    # Cuando retorna, el autovalor posta lo recuperamos con: λ = (1 / res[1]) - mu 
+    return metpot1(A_shifteada_inv, tol=tol, maxrep=maxrep)
+
+### Verificamos
+##mu = 1.9  # No puede ser exactamente igual a un autovalor sino la matriz se vuelve singular 
+##res = metpotI(A_ejemplo, mu)
+##autoval_verdadero = (1 / res[1]) - mu
+##print(autoval_verdadero)
 
 
 
+
+
+
+
+
+
+def metpotI2(A:np.ndarray, mu:float, tol:float=1e-8, maxrep:int=np.inf):
+    """
+    Recibe la matriz A, y un valor mu y retorna el segundo autovalor
+    y el autovector asociado de la matriz A, suponiendo que sus autovalores
+    son positivos excepto por el menor que es igual a 0
+    """
+    X = A + mu * np.eye(A.shape[0])  # Calculamos la matriz A shifteada en mu
+    iX = calcula_inversa_con_LU(X, False)  # La invertimos    
+    defliX = deflaciona(iX)  # La deflacionamos
+    v,l,_ =  metpot1(defliX)  # Buscamos su segundo autovector
+    l = 1/l  # Reobtenemos el autovalor correcto
+    l -= mu
+    return v, l 
+
+### Verificamos
+##D = np.diag([7.0, 4.0, 2.0, 5.0, 1.0, 0.0, 8.0])  # Estos son los autovalores 
+##v = np.random.randn(D.shape[0],1)
+##v /= np.linalg.norm(v)
+##B = np.eye(D.shape[0]) - 2 * v @ v.T
+##A = B @ D @ B.T
+##mu = 0.1
+##res = metpotI2(A, mu)
+##print(f'Segundo autovalor mas chico: {res[1]}\n')
 
 
 
