@@ -277,6 +277,7 @@ def metpot1(A:np.ndarray, tol:float=1e-8, maxrep:int=np.inf):
     con un error relativo menor a tol y-o haciendo como mucho
     maxrep repeticiones.
     """
+    np.random.seed(1) # Definimos una semilla para obtener resultados reproducibles
     # La fórmula para el cociente de Rayleigh nos pide dividir por: np.linalg.norm(v)**2
     # Pero probando varias veces, la calculada suele ser 0.9999... Entonces para arrastrar
     # la menor cantidad de errores posibles asumimos que np.linalg.norm(v) = 1 (lo quitamos del denominador)
@@ -329,9 +330,9 @@ def metpot2(
     A:np.ndarray, v1:np.ndarray, l1:float, tol:float=1e-8, maxrep:int=np.inf
     ):
     """
-    La funcion aplica el metodo de la potencia
-    para buscar el segundo autovalor de A,
-    suponiendo que sus autovectores son ortogonales
+    La funcion aplica el metodo de la potencia para buscar
+    el segundo autovalor de A, suponiendo que sus autovectores
+    son ortogonales.
     """
     # v1 y l1 son los primeros autovectores y autovalores de A}    
     deflA = A - l1 * np.outer(v1, v1)  # Esta es nuestra A_1 donde el autovalor dominante de A ahora es 0 
@@ -400,72 +401,128 @@ def metpotI2(A:np.ndarray, mu:float, tol:float=1e-8, maxrep:int=np.inf):
 
 
 
-##def laplaciano_iterativo(A,niveles,nombres_s=None):
-##    # Recibe una matriz A, una cantidad de niveles sobre los que hacer cortes, y los nombres de los nodos
-##    # Retorna una lista con conjuntos de nodos representando las comunidades.
-##    # La función debe, recursivamente, ir realizando cortes y reduciendo en 1 el número de niveles hasta llegar a 0 y retornar.
-##    if nombres_s is None: # Si no se proveyeron nombres, los asignamos poniendo del 0 al N-1
-##        nombres_s = range(A.shape[0])
-##    if A.shape[0] == 1 or niveles == 0: # Si llegamos al último paso, retornamos los nombres en una lista
-##        return([nombres_s])
-##    else: # Sino:
-##        L = calcula_L(A) # Recalculamos el L
-##        v,l,_ = ... # Encontramos el segundo autovector de L
-##        # Recortamos A en dos partes, la que está asociada a el signo positivo de v y la que está asociada al negativo
-##        Ap = ... # Asociado al signo positivo
-##        Am = ... # Asociado al signo negativo
-##        
-##        return(
-##                laplaciano_iterativo(Ap,niveles-1,
-##                                     nombres_s=[ni for ni,vi in zip(nombres_s,v) if vi>0]) +
-##                laplaciano_iterativo(Am,niveles-1,
-##                                     nombres_s=[ni for ni,vi in zip(nombres_s,v) if vi<0])
-##                )        
+def laplaciano_iterativo(A:np.ndarray, niveles:int, nombres_s=None):
+    """
+    Recibe una matriz A, una cantidad de niveles sobre los que hacer cortes,
+    y los nombres de los nodos. Retorna una lista con conjuntos de nodos
+    representando las comunidades. La función debe, recursivamente, ir realizando
+    cortes y reduciendo en 1 el número de niveles hasta llegar a 0 y retornar.
+    """
+    # Si no se proveyeron nombres, los asignamos poniendo del 0 al N-1
+    if nombres_s is None:
+        nombres_s = range(A.shape[0])
+    # Si llegamos al último paso, retornamos los nombres en una lista
+    if A.shape[0] == 1 or niveles == 0: 
+        return [nombres_s] 
+    else: # Sino:
+        L = calcula_L(A)  # Recalculamos el L
+        # Definimos µ con un valor cercano a 0
+        mu = 1e-4  # Si otras matrices tienen autovalores más cercanos que cero a mu, hay que cambiarlo 
+        v,l = metpotI2(L, mu)  # Encontramos el segundo autovector de L
+        # Recortamos A en dos partes, la que está asociada a el signo positivo de v
+        # y la que está asociada al negativo:
+        
+        # Calculamos el vector de asignación de comunidades
+        s = np.where(np.isclose(v, 0) | (v > 0), 1, -1)
+        
+        # Obtenemos los indices de las filas/columnas del grupo1 (s_i = 1)
+        indices_nodos_positivos = np.where(s == 1)[0]  
+        Ap = A[indices_nodos_positivos][:, indices_nodos_positivos] # Grupo asociado al signo positivo
+        
+        # Obtenemos los indices de las filas/columnas del grupo2 (s_i = -1)
+        indices_nodos_negativos = np.where(s == -1)[0]  
+        Am = A[indices_nodos_negativos][:, indices_nodos_negativos] # Grupo asociado al signo negativo
+
+        return(
+            laplaciano_iterativo(
+                Ap,  # Se calcula la asignación de comunidades dentro del grupo1
+                niveles-1,
+                nombres_s=[ni for ni,vi in zip(nombres_s,v) if vi>0]  # Lista de nodos en grupo1
+            ) +
+            laplaciano_iterativo(
+                Am, # Se calcula la asignación de comunidades dentro del grupo2
+                niveles-1,
+                nombres_s=[ni for ni,vi in zip(nombres_s,v) if vi<0] # Lista de nodos en grupo2
+            ) 
+        ) 
+             
+### Verificamos
+##grupos = laplaciano_iterativo(A_ejemplo, 2)
+##print(grupos) # Dividió en dos grupos la matriz de ejemplo
 
 
 
 
+def modularidad_iterativo(A=None,R=None,nombres_s=None):
+    """
+    Recibe una matriz A, una matriz R de modularidad, y los nombres
+    de los nodos. Retorna una lista con conjuntos de nodos representando
+    las comunidades.
+    """
+    if A is None and R is None:
+        print('Dame una matriz')
+        return(np.nan)
+    if R is None:
+        R = calcula_R(A)
+    if nombres_s is None:
+        nombres_s = range(R.shape[0])
+    # Acá empieza lo bueno
+    if R.shape[0] == 1: # Si llegamos al último nivel
+        return [nombres_s] 
+    else:
+        v,l,_ = metpot1(R) # Primer autovector y autovalor de R
+        # Modularidad Actual:
+        Q0 = np.sum(R[v>0,:][:,v>0]) + np.sum(R[v<0,:][:,v<0])
+        # Si la modularidad actual es menor a cero
+        # o no se propone una partición, terminamos
+        if Q0<=0 or all(v>0) or all(v<0): 
+            return [nombres_s]
+        else:
+            ## Hacemos como con L, pero usando directamente R
+            # para poder mantener siempre la misma matriz de modularidad
 
+            # Encontramos el segundo autovector de R
+            v2, l2, _ = metpot2(R, v, l)
 
-##def modularidad_iterativo(A=None,R=None,nombres_s=None):
-##    # Recibe una matriz A, una matriz R de modularidad, y los nombres de los nodos
-##    # Retorna una lista con conjuntos de nodos representando las comunidades.
-##
-##    if A is None and R is None:
-##        print('Dame una matriz')
-##        return(np.nan)
-##    if R is None:
-##        R = calcula_R(A)
-##    if nombres_s is None:
-##        nombres_s = range(R.shape[0])
-##    # Acá empieza lo bueno
-##    if R.shape[0] == 1: # Si llegamos al último nivel
-##        return(...)
-##    else:
-##        v,l,_ = ... # Primer autovector y autovalor de R
-##        # Modularidad Actual:
-##        Q0 = np.sum(R[v>0,:][:,v>0]) + np.sum(R[v<0,:][:,v<0])
-##        if Q0<=0 or all(v>0) or all(v<0): # Si la modularidad actual es menor a cero, o no se propone una partición, terminamos
-##            return(...)
-##        else:
-##            ## Hacemos como con L, pero usando directamente R para poder mantener siempre la misma matriz de modularidad
-##            Rp = ... # Parte de R asociada a los valores positivos de v
-##            Rm = ... # Parte asociada a los valores negativos de v
-##            vp,lp,_ = ...  # autovector principal de Rp
-##            vm,lm,_ = ... # autovector principal de Rm
-##        
-##            # Calculamos el cambio en Q que se produciría al hacer esta partición
-##            Q1 = 0
-##            if not all(vp>0) or all(vp<0):
-##               Q1 = np.sum(Rp[vp>0,:][:,vp>0]) + np.sum(Rp[vp<0,:][:,vp<0])
-##            if not all(vm>0) or all(vm<0):
-##                Q1 += np.sum(Rm[vm>0,:][:,vm>0]) + np.sum(Rm[vm<0,:][:,vm<0])
-##            if Q0 >= Q1: # Si al partir obtuvimos un Q menor, devolvemos la última partición que hicimos
-##                return([[ni for ni,vi in zip(nombres_s,v) if vi>0],[ni for ni,vi in zip(nombres_s,v) if vi<0]])
-##            else:
-##                # Sino, repetimos para los subniveles
-##                return(...)
-##
-##
-##
-##    return B
+            # Calculamos el vector de asignación de comunidades
+            s = np.where(np.isclose(v2, 0) | (v2 > 0), 1, -1)
+
+            # Obtenemos los indices de las filas/columnas del grupo1 (s_i = 1)
+            indices_nodos_positivos = np.where(s == 1)[0]
+            # Parte de R asociada a los valores positivos de v
+            Rp = R[indices_nodos_positivos][:, indices_nodos_positivos]
+
+            # Obtenemos los indices de las filas/columnas del grupo2 (s_i = -1)
+            indices_nodos_negativos = np.where(s == -1)[0]
+            # Parte asociada a los valores negativos de v
+            Rm = R[indices_nodos_negativos][:, indices_nodos_negativos] 
+        
+            vp,lp,_ = metpot1(Rp)  # autovector principal de Rp
+            vm,lm,_ = metpot1(Rm) # autovector principal de Rm
+        
+            # Calculamos el cambio en Q que se produciría al hacer esta partición
+            Q1 = 0
+            if not all(vp>0) or all(vp<0):
+               Q1 = np.sum(Rp[vp>0,:][:,vp>0]) + np.sum(Rp[vp<0,:][:,vp<0])
+            if not all(vm>0) or all(vm<0):
+                Q1 += np.sum(Rm[vm>0,:][:,vm>0]) + np.sum(Rm[vm<0,:][:,vm<0])
+            if Q0 >= Q1: # Si al partir obtuvimos un Q menor, devolvemos la última partición que hicimos
+                return([[ni for ni,vi in zip(nombres_s,v) if vi>0],[ni for ni,vi in zip(nombres_s,v) if vi<0]])
+            else:
+                # Sino, repetimos para los subniveles
+                return(
+                    modularidad_iterativo(
+                        A,
+                        Rp,
+                        nombres_s=[ni for ni,vi in zip(nombres_s,vp) if vi>0]
+                    ) +
+                    modularidad_iterativo(
+                        A,
+                        Rm,
+                        nombres_s=[ni for ni,vi in zip(nombres_s,vm) if vi<0]
+                    )                  
+                )
+
+### Verificamos
+##grupos = modularidad_iterativo(A_ejemplo, calcula_R(A_ejemplo))
+##print(grupos) # Dividió en dos grupos la matriz de ejemplo
