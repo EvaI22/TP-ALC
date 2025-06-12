@@ -238,8 +238,6 @@ def calcula_R(A:np.ndarray) -> np.ndarray:
 
 
 
-
-
 def calcula_lambda(L,v):
     """
     Recibe L y v y retorna el corte asociado
@@ -567,7 +565,7 @@ def construye_adyacencia_simetrica(D:np.ndarray, m:int) -> np.ndarray:
 
 
 
-colores = [  # Para identifcar las comunidades
+colores = [  # Para identifcar las comunidades (se eligen al azar)
     "#004d03","#5f33de","#51bf00","#a754ff","#00be3b","#ff4ef2","#85bd00","#48009e","#caad00","#3764ff",
     "#e79b00","#0129af","#f37200","#3095ff","#ff2d1d","#00a9fe","#ea0020","#00bd8d","#fb00c5","#00ae68",
     "#9d0095","#a9cd75","#ff54c7","#385d00","#7489ff","#927e00","#d190ff","#666e00","#730066","#ccc46b",
@@ -734,7 +732,7 @@ def graficar_comunidades_museos_laplaciano(
     )
 
     # Generamos el texto del pie de gráfico
-    info = f'{len(particion_con_L)} comunidades detectadas'
+    info = f'{len(particion_con_L)} comunidades detectadas con el laplaciano'
     _ = fig.text(  # Asignamos el retorno a una variable desechable para que no lo imprima 
         0.65,
         0.1, 
@@ -751,7 +749,9 @@ def graficar_comunidades_museos_laplaciano(
         return ax  # Devolvemos el eje modificado
 
 
-
+# Esta función hace practicamente lo mismo que la anterior en términos de digramación
+# pero hace llamadas a métodos distintos (entre otras cosas) 
+# Para agilizar la lectura del notebook, decidimos definirla por separado
 def graficar_comunidades_museos_modularidad(
     m: int,
     tol:float=1e-8, 
@@ -884,7 +884,7 @@ def graficar_comunidades_museos_modularidad(
     )
 
     # Generamos el texto del pie de gráfico
-    info = f'{len(particion_con_modularidad)} comunidades detectadas'
+    info = f'{len(particion_con_modularidad)} comunidades detectadas con modularidad'
     _ = fig.text(  # Asignamos el retorno a una variable desechable para que no lo imprima 
         0.65,
         0.1, 
