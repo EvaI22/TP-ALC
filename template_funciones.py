@@ -165,6 +165,149 @@ def calcula_B(C: np.ndarray, cantidad_de_visitas:int) -> np.ndarray:
         B += potencias_de_C  # Empieza como B = I + C^1 y en cada iteración i suma: I + C^1 + ... + C^{i+1} 
         potencias_de_C = C @ potencias_de_C # Aumenta en uno la potencia 
 
+    return B
+
+
+
+
+
+
+def graficar_red_museos(
+    m: int,
+    alfa: int | float,
+    n_museos_principales: int = 3,
+    color_fondo: str = '#2a3fff',  # Acá podemos jugar con los parámetros para darle estilo a los gráficos
+    color_barrio_relevante: str = '#7000c9',
+    color_limite_barrial: str = '#ff9187',
+    color_nodos_relevantes: str = '#ff0b69',
+    color_nodos_grales: str = '#31ffba',
+    color_texto: str = 'white',
+    ax=None,  # Cuando se crean varios graficos seguidos le pasamos el eje como argumento
+    fig=None  # Cuando se crean varios graficos seguidos le pasamos la figura como argumento 
+    ):
+    """
+    Función que recibe una cantidad m de museos cercanos y un factor de amortiguamiento alfa
+    y los utiliza para construir la matriz de adyacencia y de transiciones que permiten obtener
+    el vector PageRank y utilizarlo para crear y graficar una red de museos ubicados en la Capital Federal.
+    Además permite configurar algunos parámetros visuales del gráfico.
+    """
+
+    # Verificamos que los argumentos recibidos sean adecuados
+    if m < 1:
+        raise ValueError('La cantidad de museos cercanos debe ser mayor o igual a 1')
+    if not isinstance(m, int):
+        raise ValueError('El parámetro m debe ser un entero')
+    if alfa < 0 or alfa > 1:
+        raise ValueError('El parametro alfa debe estar en el intervalo [0, 1]')
+
+    # Datos de los museos y barrios
+    museos = gpd.read_file('https://raw.githubusercontent.com/MuseosAbiertos/Leaflet-museums-OpenStreetMap/refs/heads/principal/data/export.geojson')
+    barrios = gpd.read_file('https://cdn.buenosaires.gob.ar/datosabiertos/datasets/ministerio-de-educacion/barrios/barrios.geojson')
+    # Matriz de distancias
+    D = museos.to_crs("EPSG:22184").geometry.apply(lambda g: museos.to_crs("EPSG:22184").distance(g)).round().to_numpy() 
+    A = construye_adyacencia(D,m)  # Matriz de adyacencia
+    p = calcula_pagerank(A, alfa)  # Vector de PageRank
+    G = nx.from_numpy_array(A)  # Grafo (red) a partir de la matriz de adyacencia
+    G_layout = {  # Diseño del grafo a partir de las coordenadas geográficas
+        i:v for i,v in enumerate(
+            zip(
+                museos.to_crs("EPSG:22184").get_coordinates()['x'],
+                museos.to_crs("EPSG:22184").get_coordinates()['y']
+               )
+        )
+    }
+    
+    Nprincipales = n_museos_principales  # Cantidad a considerar de museos principales
+    principales = np.argsort(p)[-Nprincipales:]
+    labels = {n: str(n) if i in principales else "" for i, n in enumerate(G.nodes)} # Indices de los n museos principales
+
+    # Obtenemos los nombres de los museos
+    nombres_museos = []
+    for indice_museo in principales:
+        nombres_museos.append(museos['name'].iloc[indice_museo])
+
+    # Obtenemos los barrios a colorear
+    barrios_con_museos_relevantes = []
+    for indice_museo in principales:
+        museo = museos.iloc[indice_museo].geometry  # Obtenemos la ubicación
+        # Obtenemos el barrio que contiene al museo
+        barrios_con_museos_relevantes.append(barrios[barrios.geometry.contains(museo)]['nombre'].values[0])  
+    barrios_a_colorear = list(set(barrios_con_museos_relevantes))  # Filtramos repetidos
+
+    # Creamos un arreglo de booleanos que indica si se debe colorear o no cada barrio 
+    aplicar_color = barrios['nombre'].isin(barrios_a_colorear) 
+
+    # Visualización
+    factor_escala = 1e4
+
+    # Si no nos pasaron un eje, creamos figura y eje nuevos
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(10, 10))
+        nuevo_fig_creado = True
+    else:
+        nuevo_fig_creado = False
+
+    # Configuración del eje
+    ax.axis("off")
+    if fig is not None:
+        fig.set_facecolor(color_fondo)
+    elif nuevo_fig_creado:
+        fig.set_facecolor(color_fondo)
+
+    # Al parecer, boundary.pot(...) solo hace los bordes pero no permite el relleno, asique usamos plot directamente
+    # para colorear a los barrios que contienen a los n museos principales
+    barrios.to_crs("EPSG:22184").plot(
+        ax = ax,
+        facecolor = np.where(aplicar_color, color_barrio_relevante, 'none'),  
+        edgecolor = color_limite_barrial,
+        linewidth = 2, # Grosor del límite de cada barrio
+    )
+
+    # Le damos un color diferente a los nodos principales, para que se distingan
+    colores_de_nodos = [  
+        color_nodos_relevantes if i in principales else color_nodos_grales for i in range(len(G.nodes))
+    ]
+
+    # Graficamos la red donde cada nodo tiene un tamaño proporcional al PageRank que le toco
+    nx.draw_networkx(
+        G,  # La red 
+        G_layout,  # Su diseño sobre el mapa de CABA
+        node_size = p*factor_escala,  # Array que asigna a cada nodo el tamaño correspondiente
+        ax = ax,
+        with_labels = False,
+        node_color = colores_de_nodos)
+    _ = nx.draw_networkx_labels(G, G_layout, labels=labels, font_size=6, font_color="k")  # Asignamos el retorno a una variable desechable para que no lo imprima 
+
+    # Título y pie de gráfico
+    titulo = f'RED DE MUSEOS CON PAGERANK Y UBICACIÓN DE LOS {n_museos_principales} PRINCIPALES \n(m = {m}, α = {np.round(alfa, 3)})\n\n'
+    ax.set_title(
+        titulo, 
+        fontsize=9,
+        color=color_texto,
+        fontweight='bold',
+    )
+
+    # Generamos el texto del pie de gráfico
+    nombres_principales = '\n '.join(str(nombre) for nombre in nombres_museos)
+    tex_nombres = f'Los {Nprincipales} museos principales son:\n{nombres_principales}\n'
+    barrios_principales = ', '.join(str(barrio) for barrio in barrios_a_colorear)
+    tex_barrios = f'Barrio(s) con los {Nprincipales} museos principales: {barrios_principales}.'    
+    info = tex_nombres + tex_barrios
+    _ = fig.text(  # Asignamos el retorno a una variable desechable para que no lo imprima 
+        0.65,
+        0.1, 
+        info,
+        ha='center',  
+        fontsize=9,
+        color=color_texto,
+    )
+    
+    if nuevo_fig_creado:
+        plt.close()
+        return fig
+    else:
+        return ax  # Devolvemos el eje modificado
+
 
 
 
