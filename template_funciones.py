@@ -417,14 +417,15 @@ def calcula_Q(R,v):
 
 
     
-
-def metpot1(A:np.ndarray, tol:float=1e-8, maxrep:int=np.inf, semilla:int=1):
+# Quitamos la configuración de una semilla por defecto
+# Dejamos comentada la posibilidad de configurar una semilla a nivel global
+# np.random.seed()
+def metpot1(A:np.ndarray, tol:float=1e-8, maxrep:int=np.inf):
     """
     Recibe una matriz A y calcula su autovalor de mayor módulo,
     con un error relativo menor a tol y-o haciendo como mucho
     maxrep repeticiones.
     """
-    np.random.seed(semilla) # Definimos una semilla para obtener resultados reproducibles
     
     # La fórmula para el cociente de Rayleigh nos pide dividir por: np.linalg.norm(v)**2
     # Pero probando varias veces, la calculada suele ser 0.9999... Entonces para arrastrar
@@ -457,13 +458,13 @@ def metpot1(A:np.ndarray, tol:float=1e-8, maxrep:int=np.inf, semilla:int=1):
 
 
 def deflaciona(
-    A:np.ndarray, tol:float=1e-8, maxrep:int=np.inf, semilla:int=1
+    A:np.ndarray, tol:float=1e-8, maxrep:int=np.inf
     ) -> np.ndarray:
     """
     Recibe la matriz A, una tolerancia para el método de la potencia,
     y un número máximo de repeticiones
     """
-    v1, l1, _ = metpot1(A, tol, maxrep, semilla)  # Buscamos primer autovector con método de la potencia
+    v1, l1, _ = metpot1(A, tol, maxrep)  # Buscamos primer autovector con método de la potencia
     deflA = A - l1 * np.outer(v1, v1)  # v1 ya está normalizado
     # Retornamos A_1 (el autovalor dominante obtenido fue reemplazado por 0)
     return deflA
@@ -478,7 +479,7 @@ def deflaciona(
 
 
 def metpot2(
-    A:np.ndarray, v1:np.ndarray, l1:float, tol:float=1e-8, maxrep:int=np.inf, semilla:int=1
+    A:np.ndarray, v1:np.ndarray, l1:float, tol:float=1e-8, maxrep:int=np.inf
     ):
     """
     La funcion aplica el metodo de la potencia para buscar
@@ -487,7 +488,7 @@ def metpot2(
     """
     # v1 y l1 son los primeros autovectores y autovalores de A}    
     deflA = A - l1 * np.outer(v1, v1)  # Esta es nuestra A_1 donde el autovalor dominante de A ahora es 0 
-    return metpot1(deflA, tol, maxrep, semilla)
+    return metpot1(deflA, tol, maxrep)
 
 ### Verificamos
 ##A_1 = deflaciona(A_ejemplo)
@@ -502,7 +503,7 @@ def metpot2(
 
 # La matriz laplaciana tiene autovalores >= 0, cuando mu ≈ 0 obtiene el buscado
 # Para el corte mínimo usamos el segundo autovalor más chico
-def metpotI(A:np.ndarray, mu:float, tol:float=1e-8, maxrep:int=np.inf, semilla:int=1): 
+def metpotI(A:np.ndarray, mu:float, tol:float=1e-8, maxrep:int=np.inf): 
     """
     Retorna el primer autovalor de la inversa de A + mu * I,
     junto a su autovector y si el método convergió.
@@ -510,7 +511,7 @@ def metpotI(A:np.ndarray, mu:float, tol:float=1e-8, maxrep:int=np.inf, semilla:i
     A_shifteada = A + mu * np.eye(A.shape[0])
     A_shifteada_inv = calcula_inversa_con_LU(A_shifteada, False)  # Evitamos que calcule el determinante 
     # Cuando retorna, el autovalor posta lo recuperamos con: λ = (1 / res[1]) - mu 
-    return metpot1(A_shifteada_inv, tol, maxrep, semilla)
+    return metpot1(A_shifteada_inv, tol, maxrep)
 
 ### Verificamos
 ##mu = 1.9  # No puede ser exactamente igual a un autovalor sino la matriz se vuelve singular 
@@ -526,7 +527,7 @@ def metpotI(A:np.ndarray, mu:float, tol:float=1e-8, maxrep:int=np.inf, semilla:i
 
 
 
-def metpotI2(A:np.ndarray, mu:float, tol:float=1e-8, maxrep:int=np.inf, semilla:int=1):
+def metpotI2(A:np.ndarray, mu:float, tol:float=1e-8, maxrep:int=np.inf):
     """
     Recibe la matriz A, y un valor mu y retorna el segundo autovalor
     y el autovector asociado de la matriz A, suponiendo que sus autovalores
@@ -534,8 +535,8 @@ def metpotI2(A:np.ndarray, mu:float, tol:float=1e-8, maxrep:int=np.inf, semilla:
     """
     X = A + mu * np.eye(A.shape[0])  # Calculamos la matriz A shifteada en mu
     iX = calcula_inversa_con_LU(X, False)  # La invertimos    
-    defliX = deflaciona(iX, tol, maxrep, semilla)  # La deflacionamos
-    v,l,_ =  metpot1(defliX, tol, maxrep, semilla)  # Buscamos su segundo autovector
+    defliX = deflaciona(iX, tol, maxrep)  # La deflacionamos
+    v,l,_ =  metpot1(defliX, tol, maxrep)  # Buscamos su segundo autovector
     l = 1/l  # Reobtenemos el autovalor correcto
     l -= mu
     return v, l 
@@ -558,8 +559,7 @@ def laplaciano_iterativo(
     nombres_s=None, 
     mu:float=1e-4,  # Argumentos para llamar al método de la potencia inversa
     tol:float=1e-8, 
-    maxrep:int=np.inf, 
-    semilla:int=1
+    maxrep:int=np.inf
     ):
     """
     Recibe una matriz A, una cantidad de niveles sobre los que hacer cortes,
@@ -577,7 +577,7 @@ def laplaciano_iterativo(
         L = calcula_L(A)  # Recalculamos el L
         # Definimos µ con un valor cercano a 0
         # mu = 1e-4  # Si otras matrices tienen autovalores más cercanos que cero a mu, hay que cambiarlo 
-        v, _ = metpotI2(L, mu, tol, maxrep, semilla)  # Encontramos el segundo autovector de L
+        v, _ = metpotI2(L, mu, tol, maxrep)  # Encontramos el segundo autovector de L
         # Recortamos A en dos partes, la que está asociada a el signo positivo de v
         # y la que está asociada al negativo:
        
@@ -618,7 +618,6 @@ def modularidad_iterativo(
     nombres_s=None,
     tol:float=1e-8, # Argumentos para llamar al método de la potencia
     maxrep:int=np.inf, 
-    semilla:int=1,
     ):
     """
     Recibe una matriz A, una matriz R de modularidad, y los nombres
@@ -638,7 +637,7 @@ def modularidad_iterativo(
         return [nombres_s]
     
     else: # Si la matriz de modularidad R tiene dimensión mayor a 1        
-        v,l, _ = metpot1(R, tol, maxrep, semilla) # Obtenemos el primer autovector y autovalor de R
+        v,l, _ = metpot1(R, tol, maxrep) # Obtenemos el primer autovector y autovalor de R
         # Si E = np.sum(A) / 2, y tengo que hacer: (1 / (2*E)), me queda: 
         Q0 = (1 / np.sum(A)) * calcula_Q(R, v)  # Calculamos la modularidad actual
         
@@ -647,7 +646,7 @@ def modularidad_iterativo(
 
         else:
             ## Hacemos como con L, pero usando directamente R para poder mantener siempre la misma matriz de modularidad
-            v2, l2, _ = metpot2(R, v, l, tol, maxrep, semilla)  # Encontramos el segundo autovector de R            
+            v2, l2, _ = metpot2(R, v, l, tol, maxrep)  # Encontramos el segundo autovector de R            
             s = np.where(np.isclose(v2, 0) | (v2 > 0), 1, -1)  # Calculamos el vector de asignación de comunidades
             
             # La longitud de s se va achicando, por lo tanto el rango de los indices tambien
@@ -656,8 +655,8 @@ def modularidad_iterativo(
             
             Rp = R[indices_nodos_positivos][:, indices_nodos_positivos]  # Parte de R asociada a los valores positivos de v
             Rm = R[indices_nodos_negativos][:, indices_nodos_negativos]  # Parte asociada a los valores negativos de v
-            vp,lp,_ = metpot1(Rp, tol, maxrep, semilla)  # autovector principal de Rp
-            vm,lm,_ = metpot1(Rm, tol, maxrep, semilla) # autovector principal de Rm
+            vp,lp,_ = metpot1(Rp, tol, maxrep)  # autovector principal de Rp
+            vm,lm,_ = metpot1(Rm, tol, maxrep) # autovector principal de Rm
         
             # Calculamos el cambio en Q que se produciría al hacer esta partición
             Q1 = 0
@@ -741,13 +740,12 @@ def obtener_colores_nodos(lista_comunidades:list[list]) -> list[str]:
 def graficar_comunidades_museos_laplaciano(
     m: int,
     mu:float=1e-4,
-    corte_minimo=None,
+    niveles=None,
     tol:float=1e-8, 
-    maxrep:int=np.inf,
-    semilla:int=1,    
-    color_fondo: str = '#fce7bc',  # Acá podemos jugar con los parámetros para darle estilo a los gráficos
-    color_barrio_relevante: str = '#d5c39f',
-    color_limite_barrial: str = '#a39579',
+    maxrep:int=np.inf,  
+    color_fondo: str = '#f0ffff',  # Acá podemos jugar con los parámetros para darle estilo a los gráficos
+    color_barrio_relevante: str = '#b08ab1',
+    color_limite_barrial: str = '#785e79',
     color_texto: str = 'black',
     ax=None,  # Cuando se crean varios graficos seguidos le pasamos el eje como argumento
     fig=None  # Cuando se crean varios graficos seguidos le pasamos la figura como argumento 
@@ -775,15 +773,11 @@ def graficar_comunidades_museos_laplaciano(
 
     # Detectamos las comunidades
     L = calcula_L(A)  # Calculamos la matriz laplaciana
-    res_L = metpotI2(L, mu, tol=tol, maxrep=maxrep, semilla=semilla)  # Obtenemos el segundo autovector mas chico
+    res_L = metpotI2(L, mu, tol=tol, maxrep=maxrep)  # Obtenemos el segundo autovector mas chico
     s_calculado= np.where(np.isclose(res_L[0], 0) | (res_L[0] > 0), 1, -1)  # Calculamos el vector de asignación 
 
     # Obtenemos la lista de comunidades
-    if corte_minimo:
-        cm = corte_minimo # Le pasamos un corte arbitrario
-    else:
-        cm = calcula_lambda(L, s_calculado)  # Calculamos el corte mínimo con la función que definimos
-    particion_con_L = laplaciano_iterativo(A, int(cm), tol=tol, maxrep=maxrep, semilla=semilla)  
+    particion_con_L = laplaciano_iterativo(A, int(niveles), tol=tol, maxrep=maxrep)  
 
     G_comunidades = nx.Graph() # Creamos un grafo vacío 
     G_comunidades.add_nodes_from(range(A.shape[0]))  # Misma cantidad de nodos que la matriz de adyacencia simétrica
@@ -866,7 +860,7 @@ def graficar_comunidades_museos_laplaciano(
     # Eliminamos la instrcucción que imprime los nombres (índices) de los museos
 
     # Título y pie de gráfico
-    titulo = f'COMUNIDADES DE MUSEOS CERCANOS\nm = {m}, corte mínimo = {cm}'
+    titulo = f'COMUNIDADES DE MUSEOS CERCANOS\nm = {m}, niveles = {niveles}'
     ax.set_title(
         titulo, 
         fontsize=9,
@@ -899,10 +893,9 @@ def graficar_comunidades_museos_modularidad(
     m: int,
     tol:float=1e-8, 
     maxrep:int=np.inf,
-    semilla:int=1,
-    color_fondo: str = '#d4c0ff',  # Acá podemos jugar con los parámetros para darle estilo a los gráficos
-    color_barrio_relevante: str = '#ac9ccf',
-    color_limite_barrial: str = '#7d7196',
+    color_fondo: str = '#f0ffff',  # Acá podemos jugar con los parámetros para darle estilo a los gráficos
+    color_barrio_relevante: str = '#95b089',
+    color_limite_barrial: str = '#65785d',
     color_texto: str = 'black',
     ax=None,  # Cuando se crean varios graficos seguidos le pasamos el eje como argumento
     fig=None,  # Cuando se crean varios graficos seguidos le pasamos la figura como argumento
@@ -931,8 +924,8 @@ def graficar_comunidades_museos_modularidad(
 
     # Detectamos las comunidades    
     R = calcula_R(A)
-    res_R = metpot1(R, tol=tol, maxrep=maxrep, semilla=semilla)
-    particion_con_modularidad = modularidad_iterativo(A, R, tol=tol, maxrep=maxrep, semilla=semilla) # Vector de asignación con modularidad
+    res_R = metpot1(R, tol=tol, maxrep=maxrep)
+    particion_con_modularidad = modularidad_iterativo(A, R, tol=tol, maxrep=maxrep) # Vector de asignación con modularidad
 
     G_comunidades = nx.Graph() # Creamos un grafo vacío 
     G_comunidades.add_nodes_from(range(A.shape[0]))  # Misma cantidad de nodos que la matriz de adyacencia simétrica
@@ -1043,3 +1036,11 @@ def graficar_comunidades_museos_modularidad(
     else:
         return ax  # Devolvemos el eje modificado
 
+# No hace mucho, pero la sacamos para no saturar el notebook
+def comunidades_resultantes(s:np.ndarray) -> list[list]:
+    """
+    Recibe un vector de asignaciones y retorna una lista de las comunidades
+    """
+    c1 = np.where(s == 1)[0]
+    c2 = np.where(s != 1)[0]
+    return [c1.tolist(), c2.tolist()]
